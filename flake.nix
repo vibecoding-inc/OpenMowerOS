@@ -8,75 +8,45 @@
   outputs = inputs@{ self, nixpkgs, ... }:
     let
       lib = nixpkgs.lib;
-      supportedBuildSystems = [
+      supportedCheckSystems = [
         "x86_64-linux"
         "aarch64-linux"
       ];
-      forAllSystems = lib.genAttrs supportedBuildSystems;
-      mkPi4System = buildSystem:
+      forAllCheckSystems = lib.genAttrs supportedCheckSystems;
+      mkPi4System = extraModules:
         lib.nixosSystem {
-          system = buildSystem;
+          system = "aarch64-linux";
           specialArgs = {
             inherit inputs self;
           };
-          modules = [
-            ./hosts/pi4/default.nix
-            {
-              nixpkgs.buildPlatform = buildSystem;
-              nixpkgs.hostPlatform = "aarch64-linux";
-            }
-          ];
+          modules = [ ./hosts/pi4/default.nix ] ++ extraModules;
         };
-      mkEvaluationCheck = buildSystem: name: system:
-        nixpkgs.legacyPackages.${buildSystem}.writeText name system.config.system.build.toplevel.drvPath;
-      mkPi4WiFiSystem = buildSystem:
-        lib.nixosSystem {
-          system = buildSystem;
-          specialArgs = {
-            inherit inputs self;
+      mkEvaluationCheck = checkSystem: name: system:
+        nixpkgs.legacyPackages.${checkSystem}.writeText name system.config.system.build.toplevel.drvPath;
+      pi4System = mkPi4System [ ];
+      pi4WiFiSystem = mkPi4System [
+        {
+          openmower.wifi = {
+            enable = true;
+            ssid = "OpenMower";
+            psk = "supersecretpassword";
           };
-          modules = [
-            ./hosts/pi4/default.nix
-            {
-              nixpkgs.buildPlatform = buildSystem;
-              nixpkgs.hostPlatform = "aarch64-linux";
-
-              openmower.wifi = {
-                enable = true;
-                ssid = "OpenMower";
-                psk = "supersecretpassword";
-              };
-            }
-          ];
-        };
-      pi4System = mkPi4System "x86_64-linux";
+        }
+      ];
     in
     {
       nixosConfigurations.pi4 = pi4System;
 
-      packages = forAllSystems (
-        buildSystem:
-        let
-          system = mkPi4System buildSystem;
-        in
-        {
-          default = system.config.system.build.sdImage;
-          pi4-sd-image = system.config.system.build.sdImage;
-        }
-      );
+      packages.aarch64-linux = {
+        default = pi4System.config.system.build.sdImage;
+        pi4-sd-image = pi4System.config.system.build.sdImage;
+      };
 
-      checks = forAllSystems (
-        buildSystem:
-        let
-          system = mkPi4System buildSystem;
-          wifiSystem = mkPi4WiFiSystem buildSystem;
-        in
-        {
-          pi4-eval = mkEvaluationCheck buildSystem "pi4-eval" system;
-          pi4-wifi-eval = mkEvaluationCheck buildSystem "pi4-wifi-eval" wifiSystem;
-        }
-      );
+      checks = forAllCheckSystems (checkSystem: {
+        pi4-eval = mkEvaluationCheck checkSystem "pi4-eval" pi4System;
+        pi4-wifi-eval = mkEvaluationCheck checkSystem "pi4-wifi-eval" pi4WiFiSystem;
+      });
 
-      formatter = forAllSystems (buildSystem: nixpkgs.legacyPackages.${buildSystem}.nixfmt-rfc-style);
+      formatter = forAllCheckSystems (checkSystem: nixpkgs.legacyPackages.${checkSystem}.nixfmt-rfc-style);
     };
 }

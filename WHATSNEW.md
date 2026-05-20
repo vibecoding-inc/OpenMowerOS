@@ -1,36 +1,40 @@
-# OpenMowerOS v2.x — What’s new (2025-09-14)
+# OpenMowerOS v2.x — What’s new (2026-05-20)
 
-This document highlights the most relevant changes compared to previous OpenMowerOS images.
+This document highlights the most relevant changes in the Raspberry Pi 4 NixOS rewrite.
 
 
 ## 🆕 New
 
-- 🖥️ [Dockge](https://dockge.kuma.pet/) GUI for container management.
-- 🖥️ WebTerminal [ttyd](https://tsl0922.github.io/ttyd/) provides a browser-based shell as a lightweight SSH alternative.
-- 🧰 Unified `openmower` CLI for configure, pull, start, stop, status, shell, logs, …
-- 🗂️ Consolidated storage layout: configs, maps, logs now in `/home/openmower`.
-- 🧾 Version metadata at `/usr/share/openmoweros/version.{json,yaml,sh,txt}` (git hash, branch, describe, build timestamp).
+- 🧊 A flake-based `NixOS` build now produces the Pi 4 SD-card image.
+- 🧩 The repository exposes a single `nixosConfigurations.pi4` target plus a native `packages.aarch64-linux.pi4-sd-image` artifact.
+- 📶 Hostname, SSH, Wi-Fi, OpenMower image settings, and mower parameters are now declared in NixOS options.
+- 🐳 The OpenMower runtime is managed through declarative OCI containers for `open_mower_ros`, `Mosquitto`, and `OpenMowerApp`.
+- 🗂️ Generated runtime configuration now lives under `/etc/openmower`, with persistent data under `/home/openmower`.
 
 
 ## ♻️ Changed / Improved
 
-- ⚙️ Key settings (e.g. WLAN SSID & password) configurable directly in Raspberry Pi Imager.
-- ✍️ No need to pre-edit files like `/boot/openmower/openmower_version.txt` before first boot.
-- 🚀 Eliminated initial large image pull.
-- 👤 Containers run with `openmower` user permissions (no sudo needed for most operations).
+- 🎯 The initial rewrite is intentionally Pi-4-specific instead of trying to keep a universal multi-board image.
+- 🔁 The default build path is native `aarch64-linux`; the flake no longer exposes an `x86_64` SD-image package path.
+- 🔐 Wi-Fi provisioning is handled declaratively through NetworkManager instead of first-boot hotspot flows.
+- 🧾 The image keeps lightweight revision metadata in `/etc/openmoweros/revision`.
+
+
+## 🗑️ Removed from the NixOS image
+
+- 🖥️ Dockge is no longer included.
+- 🌐 The `ttyd` web terminal is no longer included.
+- 📡 Comitup hotspot provisioning is no longer included.
+- 📦 Preloaded Docker image archives are no longer part of the build.
+- 🪝 Raspberry Pi Imager custom mutation hooks are no longer part of the image flow.
 
 
 ## 🛠️ Under the hood (for the curious)
 
-- 🐧 Debian Trixie (arm64) images built with [pi‑gen](https://github.com/RPi-Distro/pi-gen).
-- 📁 `openmower` CLI command is in `/usr/local/bin`.
-- 🐳 OpenMower stack: Mosquitto and OpenMowerApp (together with a small Nginx) now run as separate containers and are no longer built into the open_mower_ros image.
-- 📶 WLAN is managed by NetworkManager.
-- 🔌 LAN is managed by ifupdown.
-- 📡 DHCP for the internal (xCore) LAN is handled by dnsmasq.
-- 🧠 dnsmasq is also used for DNS caching and is managed by the resolvconf package.
-- 🔗 LAN can now be plugged into the home network.
-- 🌐 Standalone `webterminal.service` systemd unit launches the ttyd stack independently from Dockge.
+- 🐧 The image is built from `nixos-25.05` instead of Debian `pi-gen`.
+- 📶 Networking is handled by NetworkManager with evaluated Wi-Fi profiles.
+- 🧰 Optional legacy features such as internal LAN, OpenOCD, extras, and `openmower-cli` are omitted by default in the first rewrite.
+- ✅ CI now runs `nix flake check` and builds the SD image with `nix build` on an ARM runner.
 
 
 ---
